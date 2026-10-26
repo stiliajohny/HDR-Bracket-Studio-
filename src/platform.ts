@@ -29,7 +29,7 @@ function timestampString(value:unknown):string {
 }
 const supported=/\.(dng|cr2|cr3|nef|arw|raf|orf|rw2|jpg|jpeg|tif|tiff)$/i;
 async function readMetadata(entry:BrowserPhotoFile):Promise<Photo> {
-  const meta=await exifr.parse(entry.file, {tiff:true,exif:true,ifd0:true,translateValues:false}) as Record<string,unknown>|undefined;
+  const meta=await exifr.parse(entry.file, {tiff:true,exif:true,translateValues:false}) as Record<string,unknown>|undefined;
   if(!meta)throw new Error('No readable EXIF');
   const exposureTime=toNumber(meta.ExposureTime);
   const aperture=toNumber(meta.FNumber);
