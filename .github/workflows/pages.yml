@@ -29,6 +29,21 @@ jobs:
         env:
           GITHUB_PAGES: 'true'
         run: npm run build:web
+      - name: Verify GitHub Pages artifact
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, existsSync } from 'node:fs';
+          import { join } from 'node:path';
+          const html = readFileSync('dist/index.html', 'utf8');
+          const base = '/HDR-Bracket-Studio-/';
+          const assets = [...html.matchAll(/(?:src|href)="(\/HDR-Bracket-Studio-\/assets\/[^"]+)"/g)].map(m => m[1]);
+          if (!assets.some(p => p.endsWith('.js'))) throw Error('index.html does not reference a bundled JS file at the correct Pages base path');
+          for (const path of assets) {
+            const localPath = join('dist', path.slice(base.length));
+            if (!existsSync(localPath)) throw Error('Missing referenced asset: ' + localPath);
+          }
+          console.log('Verified index.html and', assets.length, 'GitHub Pages assets');
+          NODE
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site
