@@ -1,41 +1,24 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="theme-color" content="#0d111a"/>
-  <title>HDR Bracket Studio</title>
-  <style>
-    body{margin:0;background:#0d111a;color:#e4eaf4;font-family:system-ui,sans-serif}
-    #startup-status{max-width:560px;margin:15vh auto;padding:24px}
-    #startup-error{white-space:pre-wrap;color:#ffb6b6;font:12px/1.5 monospace}
-  </style>
-</head>
-<body>
-  <div id="root">
-    <div id="startup-status" role="status">
-      <h1>HDR Bracket Studio</h1>
-      <p>Loading application…</p>
-      <p id="startup-error"></p>
-    </div>
-  </div>
-  <script>
-    function showStartupError(message) {
-      var status = document.getElementById('startup-error');
-      if (status) status.textContent = 'Unable to start the application. ' + message;
-    }
-    window.addEventListener('error', function (event) {
-      showStartupError(event.message || 'A JavaScript or resource loading error occurred. Check browser developer tools.');
-    });
-    window.addEventListener('unhandledrejection', function (event) {
-      showStartupError(String(event.reason || 'Unhandled JavaScript rejection'));
-    });
-    window.setTimeout(function () {
-      if (document.getElementById('startup-status')) {
-        showStartupError('The JavaScript application has not mounted. Check Network for missing /HDR-Bracket-Studio-/assets/*.js files.');
-      }
-    }, 10000);
-  </script>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
-</html>
+<html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#0d111a"/><title>HDR Bracket Studio</title>
+<style>body{margin:0;background:#0d111a;color:#e4eaf4;font-family:system-ui,sans-serif}#startup-status{max-width:650px;margin:12vh auto;padding:24px}#startup-error{white-space:pre-wrap;overflow-wrap:anywhere;color:#ffb6b6;font:13px/1.5 monospace}button{padding:9px 13px;cursor:pointer}</style>
+</head><body>
+<div id="root"><div id="startup-status" role="status">
+<h1>HDR Bracket Studio</h1><p id="startup-message">Loading application…</p>
+<pre id="startup-error" role="alert"></pre>
+<button type="button" onclick="location.reload()">Reload</button>
+</div></div>
+<script>
+(function(){
+  function error(message){var el=document.getElementById('startup-error');if(el)el.textContent=message;}
+  window.__hdrStartupError=error;
+  window.addEventListener('error',function(e){error('JavaScript error: '+(e.message||'script failed to load')+(e.filename?'\n'+e.filename+':'+e.lineno:'') );},true);
+  window.addEventListener('unhandledrejection',function(e){error('Unhandled rejection: '+String(e.reason));});
+  setTimeout(function(){if(document.getElementById('startup-status')&&!document.getElementById('startup-error').textContent){
+    error('Application did not mount after 10 seconds. Open DevTools > Network, filter JS and check for 404, MIME or CSP errors. Base path: '+location.pathname);
+  }},10000);
+})();
+</script>
+<script type="module" src="/src/bootstrap.ts"></script>
+</body></html>
