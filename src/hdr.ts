@@ -243,7 +243,7 @@ export async function mergeHdr(
     const top = percentile(yValues, 0.995);
     const autoGain = opts.autoTone ? clamp(0.18 / Math.max(mid, 0.01), 0.45, 3.5) : 1;
     const gain = autoGain * 2 ** opts.exposureEV;
-    const white = Math.max(1.5, top * gain * (1.2 + 2.6 * (1 - opts.highlightCompression / 100)));
+    const white = Math.max(1.5, top * gain * (1.2 + 2.6 * (opts.highlightCompression / 100)));
     const canvas = document.createElement('canvas');
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
