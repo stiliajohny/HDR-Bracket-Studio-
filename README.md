@@ -1,29 +1,27 @@
 # HDR Bracket Studio
 
-A common React application for Tauri 2 desktop and static GitHub Pages, with runtime-specific import adapters.
+One React application for Tauri 2 and GitHub Pages, with browser EXIF and desktop ExifTool adapters.
+
+## HDR merge engine
+1. Exposure normalization from EXIF EV100 or shutter times
+2. Approximate linearization of sRGB JPEG/PNG values
+3. Optional median-threshold bitmap translation alignment
+4. Exposure-weighted linear-light radiance merge that rejects clipped inputs
+5. Heuristic Low/Medium/High motion deghosting against the reference exposure
+6. Auto tone, manual exposure compensation and highlight compression
+7. SDR JPEG preview and Radiance RGBE `.hdr` export
+
+All processing is local; originals are not modified.
+
+**Not Lightroom parity:** This is a JPEG-based approximation, not Adobe's proprietary RAW merge. Source JPEGs already contain tone curves/clipping. Auto align corrects translation only, not rotation/parallax. Deghosting is heuristic. Radiance RGBE is HDR but is not a DNG or a full-precision RAW export.
 
 ## Run
 ```bash
 npm install
-npm run dev
 npm run build:web
 npm run tauri dev
 ```
 
-## New in v0.2
-- Local JPEG/PNG/WebP thumbnails for imported web photos
-- Select an identified bracket and generate a downloadable JPEG exposure-fusion result
-- Configure fusion strength and output resolution
-- Desktop users select image files separately for processing because native folder selection does not supply File objects to the webview
-- All processing happens locally, with no photo uploads
+GitHub Pages: https://stiliajohny.github.io/HDR-Bracket-Studio-/
 
-## Limitations
-This is basic per-pixel exposure fusion (an **HDR-style SDR JPEG**), not a Lightroom-equivalent true HDR merge. Source images must be **geometrically aligned**; movement will create ghosting. The browser does not decode proprietary RAW formats. No deghosting, tone-mapped 32-bit merge, camera RAW processing, TIFF export, or automatic geometric alignment.
-
-### GitHub Pages
-Website: https://stiliajohny.github.io/HDR-Bracket-Studio-/
-
-Pages Source must be **GitHub Actions**; deployment workflow is in `.github/workflows/pages.yml`.
-
-### Desktop
-Requires Rust/Tauri system dependencies and ExifTool installed on PATH for folder metadata grouping.
+Desktop EXIF import requires ExifTool on PATH. Processing requires browser-decodable JPEG/PNG/WebP in both modes. RAW camera files must be developed externally with EXIF retained.
