@@ -299,7 +299,7 @@ function App() {
               <div className="image-presentation">
                 <img key={displayedUrl} className="stage-image" src={displayedUrl}
                   alt={view === 'merged' ? 'HDR merged preview' : currentPhoto?.name || 'Selected exposure'}/>
-                <ExifOverlayPreview photo={photoForOverlay} settings={exifOverlay}/>
+                <ExifOverlayPreview photo={photoForOverlay} settings={exifOverlay} imageUrl={displayedUrl}/>
               </div>
             ) : (
               <div className="stage-empty"><ImageIcon size={34}/><h2>{desktopLoading ? 'Loading photos…' : 'Preview unavailable'}</h2><p>{desktopLoading ? 'Reading source frames from the imported folder.' : 'RAW previews are not decoded here. Select matching JPEG frames in the Merge panel.'}</p></div>

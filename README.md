@@ -1,5 +1,45 @@
 # HDR Bracket Studio
 
+## Downloads
+
+**[Download HDR Bracket Studio — latest release](https://github.com/stiliajohny/HDR-Bracket-Studio-/releases/latest)** · [All releases and changelogs](https://github.com/stiliajohny/HDR-Bracket-Studio-/releases) · [Web application](https://stiliajohny.github.io/HDR-Bracket-Studio-/)
+
+Desktop release assets are automatically attached after the release pull request is merged:
+
+| Platform | Package |
+| --- | --- |
+| Windows x64 | NSIS setup `.exe` |
+| macOS Apple Silicon | `.dmg` |
+| macOS Intel | `.dmg` |
+| Linux x64 | `.AppImage` and `.deb` |
+
+The desktop installers are currently **unsigned/unnotarized** and ExifTool
+is a separate runtime prerequisite for desktop EXIF scanning.
+
+### Conventional releases
+
+Release Please opens a version-bump pull request when Conventional Commits
+land on `master`. Merge that **release PR** to create a GitHub Release with
+automatically generated release notes and `CHANGELOG.md`, and build the four
+desktop installer variants in the **same Actions workflow**.
+
+- `feat: add <feature>` → minor version bump
+- `fix: correct <bug>` → patch version bump
+- `feat!: change <contract>` → major version bump
+- `docs:`, `chore:` → normally no application version bump
+
+Package, Tauri and Cargo versions are updated together by Release Please.
+
+Setup prerequisite: in **Settings → Actions → General → Workflow permissions**,
+enable **Allow GitHub Actions to create and approve pull requests**. Enable
+read/write `GITHUB_TOKEN` workflow permissions if repository or organisation
+policy restricts them.
+
+The first new release is prepared from the current `0.1.0` code baseline.
+Releases are **not** published for every push: they become available when
+a proposed release PR is merged and the installer jobs succeed.
+
+
 One React application for Tauri 2 and GitHub Pages, with browser EXIF and desktop ExifTool adapters.
 
 ## HDR merge engine
@@ -103,3 +143,15 @@ In **Photo → EXIF text on photo…**, the Text size control now offers
 **Small / Medium / Large**. The same selection immediately updates the photo
 preview and the caption embedded into exported JPEGs on web and desktop.
 Radiance HDR files remain unaltered.
+
+## EXIF placement, manual resizing and ribbon
+
+The **EXIF on Photo** settings offer nine placement anchors (3×3): all four
+corners, top/bottom centre, middle-left/middle-right and image centre.
+Select **Bottom ribbon** to render a full-width dark strip along the *bottom
+of the photograph*, independent of the nine anchors.
+
+Choose Small/Medium/Large text or adjust the **Manual size** slider from
+0.5% to 5.0% of image width (0.1% steps). The same relative scale is used
+in the live photo preview and in the exported JPEG. JPEG export burns the
+EXIF ribbon/text into a copy; no source or Radiance HDR data is changed.
