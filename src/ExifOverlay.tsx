@@ -13,6 +13,7 @@ export type ExifOverlaySettings = {
   style: ExifOverlayStyle;
   size: ExifOverlaySize;
   customPercent: number;
+  showLabels: boolean;
   fields: Record<ExifField, boolean>;
 };
 
@@ -55,6 +56,7 @@ export const defaultExifOverlay: ExifOverlaySettings = {
   style: 'dark',
   size: 'medium',
   customPercent: 1.8,
+  showLabels: true,
   fields: {
     filename: false, date: true, camera: true, lens: true, shutter: true,
     aperture: true, iso: true, focal: true, compensation: false,
@@ -88,7 +90,7 @@ export function exifOverlayLines(photo: Photo | null | undefined, settings: Exif
     ev: photo.ev100 != null ? readableNumber(photo.ev100, 2) + ' EV' : '',
   };
   return fieldKeys.filter(key => settings.fields[key] && raw[key])
-    .map(key => fieldLabels[key] + ': ' + raw[key]);
+    .map(key => settings.showLabels ? fieldLabels[key] + ': ' + raw[key] : raw[key]);
 }
 
 type SettingsProps = {
@@ -148,6 +150,11 @@ export function ExifOverlayControls({settings, onChange}: SettingsProps) {
         </div>
       </div>
       <div className="exif-stamp-section">
+        <label className="exif-stamp-toggle exif-field-label-toggle">
+          <span><strong>Show field labels</strong><small>Camera: Sony vs Sony</small></span>
+          <input type="checkbox" checked={settings.showLabels}
+            onChange={e => update({showLabels: e.target.checked})}/>
+        </label>
         <div className="exif-stamp-field-heading"><span className="exif-stamp-label">Include fields</span><small>{count} selected</small></div>
         <div className="exif-stamp-fields">
           {fieldKeys.map(field => <label key={field} className="exif-stamp-field">

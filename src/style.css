@@ -132,3 +132,21 @@
 .exif-photo-overlay.style-ribbon{left:0!important;right:0!important;bottom:0!important;top:auto!important;transform:none!important;max-width:none!important;width:100%;min-width:0;border-radius:0;display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:.4em 1.05em;color:#fff;background:rgba(0,0,0,.86);white-space:normal}
 .exif-photo-overlay.style-ribbon .exif-photo-overlay-line{display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .exif-photo-overlay.style-ribbon .exif-photo-overlay-line:not(:last-child)::after{content:' ·';margin-left:.35em;color:#cbd1d9}
+
+
+/* Non-destructive SDR edit panel; the same pipeline renders preview and JPEG export. */
+.image-adjustments-disclosure{border-top:1px solid #393b3e;padding:19px 0 22px}
+.image-adjustments-disclosure>summary{color:#d9e4f1;font-size:12px;font-weight:620}
+.image-adjustments-disclosure .disclosure-inner{padding:13px 0 0;display:block}
+.adjustment-controls{display:grid;gap:11px}
+.adjustment-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.adjustment-header>span{font-size:10px;color:#9da8b5}
+.adjustment-reset{display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid #4c5159;border-radius:5px;background:#30353a;color:#bccbda;padding:5px 9px;font-size:10px}
+.adjustment-reset:not(:disabled):hover{background:#43505e;color:#fff}
+.adjustment-slider{display:grid;gap:7px;font-size:11px;color:#d2dbe5}
+.adjustment-slider>span{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.adjustment-slider output{font-variant-numeric:tabular-nums;color:#a5c9f5;min-width:30px;text-align:right}
+.adjustment-slider input{width:100%;margin:0;accent-color:#9dbef4;cursor:pointer}
+.adjustment-hint{margin:4px 0 0;color:#96a2ad;font-size:10px;line-height:1.55}
+.adjusted-hdr-preview{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+.exif-field-label-toggle{margin-bottom:3px}

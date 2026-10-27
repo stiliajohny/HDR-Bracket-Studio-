@@ -10,6 +10,7 @@ import type { Photo, Result, Group } from './types';
 import { StudioMenus } from './StudioMenus';
 import { MetadataDock, type MetadataLayout } from './MetadataDock';
 import { ExifOverlayControls, ExifOverlayPreview, renderExifOnJpeg, defaultExifOverlay, type ExifOverlaySettings } from './ExifOverlay';
+import { ImageAdjustmentControls, AdjustedHdrPreview, applyImageAdjustmentsToJpeg, defaultImageAdjustments, type ImageAdjustments } from './ImageAdjustments';
 import './style.css';
 
 const readable = /\.(jpe?g|png|webp)$/i;
@@ -47,6 +48,7 @@ function App() {
   const [metadataLayout, setMetadataLayout] = useState<MetadataLayout>('compact');
   const [exifOverlay, setExifOverlay] = useState<ExifOverlaySettings>(defaultExifOverlay);
   const [exifOverlayOpen, setExifOverlayOpen] = useState(false);
+  const [imageAdjustments, setImageAdjustments] = useState<ImageAdjustments>({ ...defaultImageAdjustments });
   const [exportingJpeg, setExportingJpeg] = useState(false);
   const [jpegBlob, setJpegBlob] = useState<Blob | null>(null);
   const [jpegUrl, setJpegUrl] = useState<string | null>(null);
@@ -185,7 +187,8 @@ function App() {
     try {
       // Burn the EXIF caption into an exported copy, never into the merged
       // radiance data or its original JPEG preview.
-      const output = await renderExifOnJpeg(jpegBlob, referencePhoto, exifOverlay);
+      const adjustedJpeg = await applyImageAdjustmentsToJpeg(jpegBlob, imageAdjustments);
+      const output = await renderExifOnJpeg(adjustedJpeg, referencePhoto, exifOverlay);
       const url = URL.createObjectURL(output);
       downloadFile(url, 'HDR_stack_' + (selected?.id ?? 1) + '.jpg');
       // Allow the browser/webview to start the download before releasing it.
@@ -297,8 +300,10 @@ function App() {
               <div className="stage-empty"><div className="stage-icon"><ImageIcon size={34}/></div><h2>Your next HDR starts here</h2><p>Import a folder of bracketed photos to find matching exposures.</p><button type="button" className="btn btn-primary" onClick={pickFolder}><FolderOpen size={16}/> Import photos</button></div>
             ) : displayedUrl ? (
               <div className="image-presentation">
-                <img key={displayedUrl} className="stage-image" src={displayedUrl}
-                  alt={view === 'merged' ? 'HDR merged preview' : currentPhoto?.name || 'Selected exposure'}/>
+                {view === 'merged' && jpegBlob
+                  ? <AdjustedHdrPreview key={displayedUrl} src={displayedUrl} settings={imageAdjustments}/>
+                  : <img key={displayedUrl} className="stage-image" src={displayedUrl}
+                      alt={currentPhoto?.name || 'Selected exposure'}/>} 
                 <ExifOverlayPreview photo={photoForOverlay} settings={exifOverlay} imageUrl={displayedUrl}/>
               </div>
             ) : (
@@ -359,6 +364,13 @@ function App() {
                 <label>Output width <select value={maxWidth} onChange={e => setMergeOption(() => setMaxWidth(Number(e.target.value)))}><option value={1200}>1200 px</option><option value={2400}>2400 px</option><option value={4000}>4000 px</option></select></label>
               </div>
             </details>
+            <details className="disclosure image-adjustments-disclosure" open>
+              <summary><SlidersHorizontal size={15}/> Image adjustments <ChevronDown size={14}/></summary>
+              <div className="disclosure-inner">
+                <ImageAdjustmentControls value={imageAdjustments}
+                  onChange={setImageAdjustments} hasPreview={Boolean(jpegBlob)}/>
+              </div>
+            </details>
             <details className="disclosure exif-stamp-disclosure" open={exifOverlayOpen}
               onToggle={e => setExifOverlayOpen(e.currentTarget.open)}>
               <summary><SlidersHorizontal size={15}/> EXIF on Photo <ChevronDown size={14}/></summary>
@@ -380,7 +392,7 @@ function App() {
               {processing ? <LoaderCircle size={16} className="spin"/> : <Layers3 size={16}/>}
               {processing ? 'Merging…' : jpegUrl ? 'Re-merge HDR' : 'Merge HDR'}
             </button>
-            <p className="format-note">EXIF caption is included in JPEG export only. HDR radiance stays unchanged. RAW/DNG merging is not supported yet.</p>
+            <p className="format-note">Image adjustments and EXIF captions are included in JPEG export only. HDR radiance stays unchanged. RAW/DNG merging is not supported yet.</p>
             {offsets.length > 0 && <details className="disclosure technical"><summary><ArrowLeftRight size={13}/> Alignment details <ChevronDown size={13}/></summary><div className="unmatched-list">{offsets.map(x => <div key={x.name}>{x.name}: {x.x}, {x.y}px</div>)}</div></details>}
           </div>
         </aside>

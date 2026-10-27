@@ -155,3 +155,23 @@ Choose Small/Medium/Large text or adjust the **Manual size** slider from
 0.5% to 5.0% of image width (0.1% steps). The same relative scale is used
 in the live photo preview and in the exported JPEG. JPEG export burns the
 EXIF ribbon/text into a copy; no source or Radiance HDR data is changed.
+
+## Live HDR image adjustments
+
+The right-side **Image adjustments** panel now offers Brightness, Contrast,
+Highlights, Shadows, Saturation and Temperature (cool/warm), each adjustable
+from -100 to +100, plus **Reset**. Once a stack has been merged, the tone-mapped
+HDR preview updates immediately without recomputing exposure alignment or
+radiance fusion. The preview uses a maximum-width 1600px canvas for responsiveness;
+JPEG export replays the same pixel transform at the selected full output size.
+
+Adjustments are non-destructive and operate on the displayed SDR rendition.
+The Radiance `.hdr` export stays unmodified. When enabled, the EXIF stamp is
+drawn **after** the colour/tone adjustments during JPEG export.
+
+The EXIF on Photo panel also includes **Show field labels**. Disable it to
+display values such as `Sony A7 IV` and `100` instead of `Camera: Sony A7 IV`
+and `ISO: 100`. The option applies to live on-photo text and JPEG export,
+including the bottom ribbon layout.
+
+Web and Tauri continue to use the same shared React and canvas implementation.
