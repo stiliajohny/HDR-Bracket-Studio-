@@ -97,19 +97,25 @@ export async function scanPhotos(folder:string,webFiles:BrowserPhotoFile[],setti
 }
 
 /**
- * Desktop-only adapter. Imports exactly the raster bytes from the folder the
- * user selected; both desktop and web then use the same React preview and
- * mergeHdr() engine. No native-only HDR algorithm or UI is introduced.
+ * Read selected-folder raster files and DNG originals in Tauri. DNGs are
+ * developed by the same LibRaw WASM decoder used on the website; both
+ * platforms feed identical JPEG frames into the shared HDR merge engine.
  */
 export async function loadDesktopRasterFiles(photos:Photo[]):Promise<BrowserPhotoFile[]> {
   if(!isDesktop()) return [];
   const {invoke}=await import('@tauri-apps/api/core');
   const files:BrowserPhotoFile[]=[];
   for(const photo of photos) {
-    if(!/\.(jpe?g|png|webp)$/i.test(photo.path)) continue;
-    const raster=await invoke<{bytes:number[];mime:string}>('read_raster_photo',{path:photo.path});
-    const file=new File([new Uint8Array(raster.bytes)],photo.name,{type:raster.mime});
-    files.push({file,path:photo.path});
+    if(/\.dng$/i.test(photo.path)) {
+      // Raw bytes are returned as a true ArrayBuffer through Tauri binary IPC.
+      const buffer=await invoke<ArrayBuffer>('read_dng_photo',{path:photo.path});
+      const file=new File([buffer],photo.name,{type:'image/x-adobe-dng'});
+      files.push({file,path:photo.path});
+    } else if(/\.(jpe?g|png|webp)$/i.test(photo.path)) {
+      const raster=await invoke<{bytes:number[];mime:string}>('read_raster_photo',{path:photo.path});
+      const file=new File([new Uint8Array(raster.bytes)],photo.name,{type:raster.mime});
+      files.push({file,path:photo.path});
+    }
   }
   return files;
 }

@@ -64,20 +64,20 @@ npm run tauri dev
 
 GitHub Pages: https://stiliajohny.github.io/HDR-Bracket-Studio-/
 
-Desktop EXIF import requires ExifTool on PATH. Processing requires browser-decodable JPEG/PNG/WebP in both modes. RAW camera files must be developed externally with EXIF retained.
+Desktop EXIF scanning requires ExifTool on PATH. JPEG, PNG, WebP and camera DNG frames are usable in both targets. DNG development runs locally using LibRaw WebAssembly; other proprietary RAW formats are metadata-only for now.
 
 ## Desktop/web feature parity
 
 The **same** `src/main.tsx` React interface, `src/platform.ts` grouping algorithm,
 and `src/hdr.ts` HDR engine are used for website and Tauri builds.
 
-- Website: browser directory picker and `exifr` for metadata.
-- Desktop: native directory picker and ExifTool for metadata; native read-only
-  JPEG/PNG/WebP access restricted to the selected folder, so previews and merge
+- Website: browser directory picker and `exifr` for EXIF; LibRaw WebAssembly for DNG development.
+- Desktop: native directory picker and ExifTool for metadata; read-only
+  JPEG/PNG/WebP/DNG access restricted to the selected folder, so previews and merge
   run without a second manual file-selection step.
 - Both: stack selection, thumbnail/filmstrip preview, Auto Align, Auto Tone,
   deghosting, exposure/highlight controls, JPEG and .hdr export.
-- Camera RAW development and DNG merging remain **unsupported on both**.
+- DNG RAW input is automatically developed in both targets for preview and merging; other camera RAW formats are metadata-only.
 - Metadata coverage differs between ExifTool and the browser parser; the
   grouping rules and image-merging implementation do not differ.
 
@@ -175,3 +175,51 @@ and `ISO: 100`. The option applies to live on-photo text and JPEG export,
 including the bottom ribbon layout.
 
 Web and Tauri continue to use the same shared React and canvas implementation.
+
+## DNG camera RAW support
+
+**DNG is supported in the web app and Tauri desktop app.** Import a folder
+containing exposure-bracketed `.dng` camera files and click **Find HDR
+stacks**. Once a stack is selected, HDR Bracket Studio reads the original DNG
+frames and develops them **locally** using a LibRaw WebAssembly worker
+(`rawconvert-wasm`). Demosaicing, camera white balance and sRGB rendering run
+on the device; the developed frames appear in the filmstrip and can be merged
+with the existing HDR tools. The originals are never changed or uploaded.
+
+The Tauri side uses `read_dng_photo` to transfer the original DNG via
+binary IPC, limited to 256 MiB and restricted to the folder the user
+explicitly scanned. Both targets use the exact same `src/dng.ts` decoder.
+The `scripts/prepare-raw.mjs` build step copies the decoder's WASM and
+worker assets to the appropriate public path, including the GitHub Pages
+repository subpath.
+
+### RAW quality and constraints
+
+- **Actual RAW decode, not just an embedded preview:** LibRaw unpacks and
+  demosaics the selected DNGs.
+- **Current intermediate is half-resolution 8-bit sRGB.** The HDR merge
+  normalises exposure and combines developed pixels; this is **not yet a
+  true linear 16-bit RAW HDR merge or Lightroom HDR DNG equivalent**.
+- DNG variants or cameras not recognised by the bundled LibRaw version may
+  fail with a per-file error. EXIF capture time, aperture, shutter and ISO
+  must be readable for automatic bracket grouping.
+- Large RAW files are memory intensive. If development fails, try smaller
+  DNGs or convert to JPEG externally and keep EXIF metadata.
+- DNG remains input-only: exported results are SDR JPEG and Radiance
+  `.hdr`. A DNG output/exporter is not provided.
+- Other proprietary camera RAW formats (CR2, CR3, NEF, ARW etc.) remain
+  metadata-scannable but do not use the DNG decoder in this release.
+
+### Developing and building
+
+```sh
+npm install
+npm run dev             # Copies the LibRaw assets and starts the web frontend
+npm run build:web       # Includes WASM in the GitHub Pages dist output
+npm run tauri dev       # Uses the same RAW decoder inside Tauri
+npm run tauri build     # Generates icons and bundles RAW WASM assets
+```
+
+The bundled LibRaw library has its own upstream licensing terms (LGPL/CDDL).
+Review the upstream license and distribution requirements when shipping
+commercial binary releases.

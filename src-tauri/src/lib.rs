@@ -109,11 +109,42 @@ fn read_raster_photo(path: String, state: State<'_, AppState>) -> Result<RasterD
     })
 }
 
+
+/**
+ * Transfer selected DNG bytes over Tauri's binary IPC as an ArrayBuffer, not
+ * as an enormous JSON array. The selected-folder boundary is enforced here.
+ * The webview develops the DNG through the same LibRaw WASM path as web.
+ */
+#[tauri::command]
+fn read_dng_photo(path: String, state: State<'_, AppState>) -> Result<tauri::ipc::Response, String> {
+    let root = state.selected_root.lock()
+        .map_err(|_| "Folder state lock failed")?
+        .clone()
+        .ok_or("Select and scan a folder before reading a DNG")?;
+    let file = Path::new(&path)
+        .canonicalize()
+        .map_err(|e| format!("Cannot access DNG: {e}"))?;
+    if !file.is_file() || !file.starts_with(&root) {
+        return Err("DNG is outside the selected photo folder".into());
+    }
+    if !file.extension().and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("dng")) {
+        return Err("Only DNG camera RAW files are supported by this command".into());
+    }
+    const MAX_DNG_BYTES: u64 = 256 * 1024 * 1024;
+    let size = fs::metadata(&file).map_err(|e| e.to_string())?.len();
+    if size > MAX_DNG_BYTES {
+        return Err("DNG exceeds the 256 MiB desktop memory safety limit".into());
+    }
+    let bytes = fs::read(&file).map_err(|e| format!("Cannot read DNG: {e}"))?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState::default())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![scan_folder, read_raster_photo])
+        .invoke_handler(tauri::generate_handler![scan_folder, read_raster_photo, read_dng_photo])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
 }

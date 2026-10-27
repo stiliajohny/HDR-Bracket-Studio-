@@ -6,3 +6,6 @@ src-tauri/gen/
 
 # Generated before Tauri builds on all platforms
 src-tauri/icons/
+
+# LibRaw WebAssembly assets copied from node_modules at build time
+public/rawconvert/

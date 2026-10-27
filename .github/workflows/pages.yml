@@ -44,6 +44,12 @@ jobs:
           }
           console.log('Verified index.html and', assets.length, 'GitHub Pages assets');
           NODE
+      - name: Verify deployed DNG decoder assets
+        run: |
+          test -s dist/rawconvert/rawconvert-core.wasm
+          test -s dist/rawconvert/rawconvert-core.js
+          test -s dist/rawconvert/worker.js
+          echo "LibRaw DNG decoder assets are included in dist"
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload site

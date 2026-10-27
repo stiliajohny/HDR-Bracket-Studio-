@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { isDesktop, scanPhotos, chooseDesktopFolder, loadDesktopRasterFiles, type BrowserPhotoFile } from './platform';
 import { mergeHdr, type DeghostLevel } from './hdr';
+import { developDngFrames, isDng } from './dng';
 import type { Photo, Result, Group } from './types';
 import { StudioMenus } from './StudioMenus';
 import { MetadataDock, type MetadataLayout } from './MetadataDock';
@@ -26,6 +27,9 @@ function App() {
   const [webFiles, setWebFiles] = useState<BrowserPhotoFile[]>([]);
   const [manualFiles, setManualFiles] = useState<BrowserPhotoFile[]>([]);
   const [desktopFiles, setDesktopFiles] = useState<BrowserPhotoFile[]>([]);
+  const [dngFiles, setDngFiles] = useState<BrowserPhotoFile[]>([]);
+  const [dngLoading, setDngLoading] = useState(false);
+  const [dngProgress, setDngProgress] = useState('');
   const [desktopLoading, setDesktopLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -56,7 +60,7 @@ function App() {
   const [offsets, setOffsets] = useState<{name: string; x: number; y: number}[]>([]);
   const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map());
 
-  const files = useMemo(() => [...manualFiles, ...desktopFiles, ...webFiles], [manualFiles, desktopFiles, webFiles]);
+  const files = useMemo(() => [...dngFiles, ...manualFiles, ...desktopFiles, ...webFiles], [dngFiles, manualFiles, desktopFiles, webFiles]);
   useEffect(() => {
     const urls = new Map<string, string>();
     for (const entry of files) {
@@ -93,6 +97,57 @@ function App() {
     return () => { cancelled = true; };
   }, [selected]);
 
+  // Develop camera DNGs only for the selected bracket, off the UI thread.
+  // Both browser Files and Tauri-loaded DNG bytes follow this exact path.
+  useEffect(() => {
+    if (!selected) {
+      setDngFiles([]);
+      setDngLoading(false);
+      setDngProgress('');
+      return;
+    }
+    const raws = selected.photos.filter(photo => isDng(photo.path));
+    if (!raws.length) {
+      setDngFiles([]);
+      setDngLoading(false);
+      setDngProgress('');
+      return;
+    }
+    if (isDesktop() && (desktopLoading || !desktopFiles.length)) {
+      setDngFiles([]);
+      return;
+    }
+    const available = [...manualFiles, ...desktopFiles, ...webFiles];
+    const sources = raws.map(photo => available.find(entry => entry.path === photo.path) ??
+      available.find(entry => entry.file.name === photo.name));
+    if (sources.some(entry => !entry)) {
+      setDngFiles([]);
+      setDngLoading(false);
+      setError('The DNG originals could not be loaded. Select the corresponding DNG files to develop this stack.');
+      return;
+    }
+    let cancelled = false;
+    setDngFiles([]);
+    setDngLoading(true);
+    setDngProgress('Starting DNG development…');
+    developDngFrames(raws.map((photo, index) => ({file: sources[index]!.file, path: photo.path})), (current, total) => {
+      if (!cancelled) setDngProgress('Developing DNG ' + current + ' of ' + total + '…');
+    }).then(developed => {
+      if (!cancelled) {
+        setDngFiles(developed);
+        setDngProgress('');
+      }
+    }).catch(e => {
+      if (!cancelled) {
+        setError(String(e));
+        setDngProgress('');
+      }
+    }).finally(() => {
+      if (!cancelled) setDngLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [selected, manualFiles, desktopFiles, webFiles, desktopLoading]);
+
   const selectedPhotos = useMemo(
     () => selected ? [...selected.photos].sort((a, b) => (b.ev100 ?? 0) - (a.ev100 ?? 0)) : [],
     [selected]
@@ -111,7 +166,7 @@ function App() {
     if (isDesktop()) {
       const path = await chooseDesktopFolder();
       if (path) {
-        setFolder(path); setWebFiles([]); setManualFiles([]); setDesktopFiles([]); setResult(null);
+        setFolder(path); setWebFiles([]); setManualFiles([]); setDesktopFiles([]); setDngFiles([]); setResult(null);
         setActiveId(null); resetPreview();
       }
     } else {
@@ -122,12 +177,12 @@ function App() {
     if (!items?.length) return;
     const entries = Array.from(items).map(file => ({ file, path: file.webkitRelativePath || file.name }));
     setFolder(entries[0].path.split('/')[0] || 'Imported images');
-    setWebFiles(entries); setManualFiles([]); setDesktopFiles([]); setResult(null); setActiveId(null);
+    setWebFiles(entries); setManualFiles([]); setDesktopFiles([]); setDngFiles([]); setResult(null); setActiveId(null);
     setError(''); resetPreview();
   }
   async function scan() {
     if (!folder) return;
-    setScanning(true); setError(''); resetPreview();
+    setScanning(true); setError(''); setDngFiles([]); resetPreview();
     try {
       const data = await scanPhotos(folder, webFiles, {
         maxGapSeconds: maxGap, bracketSize: frames, minSpanEv: minSpan
@@ -153,11 +208,12 @@ function App() {
     setProcessing(true); setError('');
     try {
       const sources = matchingFiles(selected.photos);
+      if (dngLoading) throw new Error('DNG development is still running. Merge after the frames are ready.');
       if (sources.length !== selected.photos.length) {
-        throw new Error('Some source images are unavailable. Use “Choose JPEG frames” and select all photos in this stack.');
+        throw new Error('Some source images are unavailable. Use “Choose source frames” and select the photos in this stack.');
       }
       if (sources.some(s => !readable.test(s.file.name))) {
-        throw new Error('HDR merging currently requires JPEG, PNG or WebP. Convert RAW files to JPEG with EXIF preserved.');
+        throw new Error('HDR merging requires raster frames. Wait for DNG development or choose compatible JPEG/PNG/WebP sources.');
       }
       const merged = await mergeHdr(sources, selected.photos, {
         maxWidth, autoAlign, autoTone, deghost, exposureEV, highlightCompression
@@ -219,7 +275,7 @@ function App() {
           exifOverlayEnabled={exifOverlay.enabled}
           onExportHdr={() => downloadFile(radianceUrl, `HDR_stack_${selected?.id ?? 1}.hdr`)}
           canDetect={Boolean(folder) && !scanning}
-          canMerge={Boolean(selected) && !processing && !scanning && !(isDesktop() && desktopLoading)}
+          canMerge={Boolean(selected) && !processing && !scanning && !dngLoading && !(isDesktop() && desktopLoading)}
           canExport={Boolean(jpegBlob) && !exportingJpeg}
           canExportHdr={Boolean(radianceUrl)}
           metadataVisible={metadataVisible}
@@ -307,7 +363,9 @@ function App() {
                 <ExifOverlayPreview photo={photoForOverlay} settings={exifOverlay} imageUrl={displayedUrl}/>
               </div>
             ) : (
-              <div className="stage-empty"><ImageIcon size={34}/><h2>{desktopLoading ? 'Loading photos…' : 'Preview unavailable'}</h2><p>{desktopLoading ? 'Reading source frames from the imported folder.' : 'RAW previews are not decoded here. Select matching JPEG frames in the Merge panel.'}</p></div>
+              <div className="stage-empty"><ImageIcon size={34}/><h2>{dngLoading ? 'Developing camera RAW…' : desktopLoading ? 'Loading photos…' : 'Preview unavailable'}</h2>
+                <p>{dngLoading ? dngProgress : desktopLoading ? 'Reading source frames from the imported folder.' :
+                  'No viewable preview. Some specialised DNG compression variants may not be supported.'}</p></div>
             )}
             {selected && <span className="image-caption">{view === 'merged' && jpegUrl ? 'HDR · Tone-mapped JPEG preview' : currentPhoto?.name}{dirty && view === 'merged' ? ' · Settings changed — re-merge to apply' : ''}</span>}
             {processing && <div className="processing-overlay" role="status"><LoaderCircle size={26} className="spin"/><strong>Merging exposures…</strong><span>Aligning and combining frames locally</span></div>}
@@ -381,18 +439,19 @@ function App() {
           </div>
 
           <div className="merge-bottom">
-            {selected && <div className="source-help"><label className="btn btn-outline file-picker"><Images size={15}/> Choose JPEG frames<input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={e => {setManualFiles(Array.from(e.target.files ?? []).map(file => ({file, path: file.name}))); resetPreview();}}/></label><small>Use this for RAW imports or if previews are missing. Select all exposures in the stack.</small></div>}
+            {selected && <div className="source-help"><label className="btn btn-outline file-picker"><Images size={15}/> Choose source frames<input type="file" multiple accept=".dng,image/x-adobe-dng,image/jpeg,image/png,image/webp" onChange={e => {setManualFiles(Array.from(e.target.files ?? []).map(file => ({file, path: file.name}))); resetPreview();}}/></label><small>Use this for DNG/RAW imports or if previews are missing. Select all exposures, including DNG originals, in the stack.</small></div>}
+            {dngLoading && <p className="dng-progress" role="status">{dngProgress}</p>}
             {error && <div className="error-message" role="alert"><AlertCircle size={16}/><span>{error}</span></div>}
             {jpegUrl && <div className="export-actions">
               <button type="button" disabled={exportingJpeg} onClick={exportJpeg} className="btn btn-outline"><Download size={15}/> {exportingJpeg ? 'Exporting…' : 'Export JPEG'}</button>
               {radianceUrl && <a href={radianceUrl} download={`HDR_stack_${selected?.id ?? 1}.hdr`} className="btn btn-outline"><Download size={15}/> Export .HDR</a>}
               {dirty && <small>These files use the previous merge settings.</small>}
             </div>}
-            <button type="button" className="btn btn-primary merge-button" disabled={!selected || processing || scanning || (isDesktop() && desktopLoading && manualFiles.length === 0)} onClick={merge}>
+            <button type="button" className="btn btn-primary merge-button" disabled={!selected || processing || scanning || dngLoading || (isDesktop() && desktopLoading && manualFiles.length === 0)} onClick={merge}>
               {processing ? <LoaderCircle size={16} className="spin"/> : <Layers3 size={16}/>}
-              {processing ? 'Merging…' : jpegUrl ? 'Re-merge HDR' : 'Merge HDR'}
+              {processing ? 'Merging…' : dngLoading ? 'Developing DNG…' : jpegUrl ? 'Re-merge HDR' : 'Merge HDR'}
             </button>
-            <p className="format-note">Image adjustments and EXIF captions are included in JPEG export only. HDR radiance stays unchanged. RAW/DNG merging is not supported yet.</p>
+            <p className="format-note">Image adjustments and EXIF captions are included in JPEG export only. HDR radiance stays unchanged. DNG files are developed locally with LibRaw WASM; 16-bit scene-linear RAW HDR is not yet supported.</p>
             {offsets.length > 0 && <details className="disclosure technical"><summary><ArrowLeftRight size={13}/> Alignment details <ChevronDown size={13}/></summary><div className="unmatched-list">{offsets.map(x => <div key={x.name}>{x.name}: {x.x}, {x.y}px</div>)}</div></details>}
           </div>
         </aside>
