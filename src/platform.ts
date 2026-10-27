@@ -39,7 +39,10 @@ async function readMetadata(entry:BrowserPhotoFile):Promise<Photo> {
   return {path:entry.path,name:entry.file.name,camera:[meta.Make,meta.Model,meta.SerialNumber].filter(Boolean).join(' '),
     takenAt:timestampString(meta.DateTimeOriginal), exposureTime,aperture,iso,ev100,
     exposureBias:toNumber(meta.ExposureCompensation??meta.ExposureBiasValue),
-    focalLength:toNumber(meta.FocalLength)};
+    focalLength:toNumber(meta.FocalLength),
+    lensModel:typeof meta.LensModel==='string'?meta.LensModel:typeof meta.Lens==='string'?meta.Lens:null,
+    width:toNumber(meta.ExifImageWidth??meta.ImageWidth??meta.PixelXDimension),
+    height:toNumber(meta.ExifImageHeight??meta.ImageHeight??meta.PixelYDimension)};
 }
 function groupPhotos(photos:Photo[],settings:Settings):Result {
   const sorted=[...photos].sort((a,b)=>a.camera.localeCompare(b.camera)||a.takenAt.localeCompare(b.takenAt)||a.path.localeCompare(b.path));
@@ -74,7 +77,8 @@ function groupPhotos(photos:Photo[],settings:Settings):Result {
 export async function scanPhotos(folder:string,webFiles:BrowserPhotoFile[],settings:Settings):Promise<Result>{
   if(isDesktop()){
     const {invoke}=await import('@tauri-apps/api/core');
-    return invoke<Result>('scan_folder',{folder,settings});
+    const photos = await invoke<Photo[]>('scan_folder',{folder});
+    return groupPhotos(photos,settings);
   }
   const files=webFiles.filter(f=>supported.test(f.path));
   const photos:Photo[]=[];const errors:string[]=[];
@@ -90,4 +94,22 @@ export async function scanPhotos(folder:string,webFiles:BrowserPhotoFile[],setti
   }
   res.photoCount=files.length;
   return res;
+}
+
+/**
+ * Desktop-only adapter. Imports exactly the raster bytes from the folder the
+ * user selected; both desktop and web then use the same React preview and
+ * mergeHdr() engine. No native-only HDR algorithm or UI is introduced.
+ */
+export async function loadDesktopRasterFiles(photos:Photo[]):Promise<BrowserPhotoFile[]> {
+  if(!isDesktop()) return [];
+  const {invoke}=await import('@tauri-apps/api/core');
+  const files:BrowserPhotoFile[]=[];
+  for(const photo of photos) {
+    if(!/\.(jpe?g|png|webp)$/i.test(photo.path)) continue;
+    const raster=await invoke<{bytes:number[];mime:string}>('read_raster_photo',{path:photo.path});
+    const file=new File([new Uint8Array(raster.bytes)],photo.name,{type:raster.mime});
+    files.push({file,path:photo.path});
+  }
+  return files;
 }

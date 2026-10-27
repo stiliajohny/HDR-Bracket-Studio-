@@ -4,9 +4,11 @@ import {
   Aperture, Check, ChevronDown, Download, FolderOpen, Image as ImageIcon,
   Images, LoaderCircle, SlidersHorizontal, AlertCircle, Layers3, ArrowLeftRight
 } from 'lucide-react';
-import { isDesktop, scanPhotos, chooseDesktopFolder, type BrowserPhotoFile } from './platform';
+import { isDesktop, scanPhotos, chooseDesktopFolder, loadDesktopRasterFiles, type BrowserPhotoFile } from './platform';
 import { mergeHdr, type DeghostLevel } from './hdr';
 import type { Photo, Result, Group } from './types';
+import { StudioMenus } from './StudioMenus';
+import { MetadataDock, type MetadataLayout } from './MetadataDock';
 import './style.css';
 
 const readable = /\.(jpe?g|png|webp)$/i;
@@ -21,6 +23,8 @@ function App() {
   const [folder, setFolder] = useState('');
   const [webFiles, setWebFiles] = useState<BrowserPhotoFile[]>([]);
   const [manualFiles, setManualFiles] = useState<BrowserPhotoFile[]>([]);
+  const [desktopFiles, setDesktopFiles] = useState<BrowserPhotoFile[]>([]);
+  const [desktopLoading, setDesktopLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [activeFrame, setActiveFrame] = useState(0);
@@ -38,12 +42,14 @@ function App() {
   const [highlightCompression, setHighlightCompression] = useState(50);
   const [maxWidth, setMaxWidth] = useState(2400);
   const [dirty, setDirty] = useState(false);
+  const [metadataVisible, setMetadataVisible] = useState(true);
+  const [metadataLayout, setMetadataLayout] = useState<MetadataLayout>('compact');
   const [jpegUrl, setJpegUrl] = useState<string | null>(null);
   const [radianceUrl, setRadianceUrl] = useState<string | null>(null);
   const [offsets, setOffsets] = useState<{name: string; x: number; y: number}[]>([]);
   const [thumbnailUrls, setThumbnailUrls] = useState<Map<string, string>>(new Map());
 
-  const files = useMemo(() => [...manualFiles, ...webFiles], [manualFiles, webFiles]);
+  const files = useMemo(() => [...manualFiles, ...desktopFiles, ...webFiles], [manualFiles, desktopFiles, webFiles]);
   useEffect(() => {
     const urls = new Map<string, string>();
     for (const entry of files) {
@@ -63,6 +69,22 @@ function App() {
 
   const groups = result?.groups ?? [];
   const selected = groups.find(g => g.id === activeId) ?? null;
+  useEffect(() => {
+    if (!isDesktop() || !selected) {
+      setDesktopFiles([]);
+      setDesktopLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDesktopFiles([]);
+    setDesktopLoading(true);
+    loadDesktopRasterFiles(selected.photos)
+      .then(loaded => { if (!cancelled) setDesktopFiles(loaded); })
+      .catch(e => { if (!cancelled) setError('Unable to load desktop photos: ' + String(e)); })
+      .finally(() => { if (!cancelled) setDesktopLoading(false); });
+    return () => { cancelled = true; };
+  }, [selected]);
+
   const selectedPhotos = useMemo(
     () => selected ? [...selected.photos].sort((a, b) => (b.ev100 ?? 0) - (a.ev100 ?? 0)) : [],
     [selected]
@@ -80,7 +102,7 @@ function App() {
     if (isDesktop()) {
       const path = await chooseDesktopFolder();
       if (path) {
-        setFolder(path); setWebFiles([]); setManualFiles([]); setResult(null);
+        setFolder(path); setWebFiles([]); setManualFiles([]); setDesktopFiles([]); setResult(null);
         setActiveId(null); resetPreview();
       }
     } else {
@@ -91,7 +113,7 @@ function App() {
     if (!items?.length) return;
     const entries = Array.from(items).map(file => ({ file, path: file.webkitRelativePath || file.name }));
     setFolder(entries[0].path.split('/')[0] || 'Imported images');
-    setWebFiles(entries); setManualFiles([]); setResult(null); setActiveId(null);
+    setWebFiles(entries); setManualFiles([]); setDesktopFiles([]); setResult(null); setActiveId(null);
     setError(''); resetPreview();
   }
   async function scan() {
@@ -138,10 +160,35 @@ function App() {
     finally { setProcessing(false); }
   }
 
+  function downloadFile(url: string | null, filename: string) {
+    if (!url) return;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
   return (
     <div className="studio">
       <header className="topbar">
         <div className="brand"><span className="brand-mark"><Aperture size={18}/></span><span>HDR <strong>Studio</strong></span></div>
+        <StudioMenus
+          onImport={pickFolder}
+          onDetect={scan}
+          onMerge={merge}
+          onExportJpeg={() => downloadFile(jpegUrl, `HDR_stack_${selected?.id ?? 1}.jpg`)}
+          onExportHdr={() => downloadFile(radianceUrl, `HDR_stack_${selected?.id ?? 1}.hdr`)}
+          canDetect={Boolean(folder) && !scanning}
+          canMerge={Boolean(selected) && !processing && !scanning && !(isDesktop() && desktopLoading)}
+          canExport={Boolean(jpegUrl)}
+          canExportHdr={Boolean(radianceUrl)}
+          metadataVisible={metadataVisible}
+          onMetadataVisible={setMetadataVisible}
+          metadataLayout={metadataLayout}
+          onMetadataLayout={setMetadataLayout}
+        />
         <div className="topbar-center"><span className="workspace-name">Library</span><span className="topbar-separator">/</span><span>HDR Merge</span></div>
         <div className="top-actions">
           <span className="mode-label">{isDesktop() ? 'Desktop' : 'Web'} · Local processing</span>
@@ -216,7 +263,7 @@ function App() {
             ) : displayedUrl ? (
               <img key={displayedUrl} className="stage-image" src={displayedUrl} alt={view === 'merged' ? 'HDR merged preview' : currentPhoto?.name || 'Selected exposure'}/>
             ) : (
-              <div className="stage-empty"><ImageIcon size={34}/><h2>Preview unavailable</h2><p>RAW previews aren't decoded here. Choose JPEG frames in the Merge panel to process the stack.</p></div>
+              <div className="stage-empty"><ImageIcon size={34}/><h2>{desktopLoading ? 'Loading photos…' : 'Preview unavailable'}</h2><p>{desktopLoading ? 'Reading source frames from the imported folder.' : 'RAW previews are not decoded here. Select matching JPEG frames in the Merge panel.'}</p></div>
             )}
             {selected && <span className="image-caption">{view === 'merged' && jpegUrl ? 'HDR · Tone-mapped JPEG preview' : currentPhoto?.name}{dirty && view === 'merged' ? ' · Settings changed — re-merge to apply' : ''}</span>}
             {processing && <div className="processing-overlay" role="status"><LoaderCircle size={26} className="spin"/><strong>Merging exposures…</strong><span>Aligning and combining frames locally</span></div>}
@@ -241,6 +288,14 @@ function App() {
               {!selected && <p className="filmstrip-placeholder">Select an HDR stack to view its source exposures.</p>}
             </div>
           </div>
+          {metadataVisible && <MetadataDock
+            photo={currentPhoto}
+            position={activeFrame}
+            total={selectedPhotos.length}
+            layout={metadataLayout}
+            onLayoutChange={setMetadataLayout}
+            onClose={() => setMetadataVisible(false)}
+          />}
         </section>
 
         <aside className="merge-panel">
@@ -275,7 +330,7 @@ function App() {
               {radianceUrl && <a href={radianceUrl} download={`HDR_stack_${selected?.id ?? 1}.hdr`} className="btn btn-outline"><Download size={15}/> Export .HDR</a>}
               {dirty && <small>These files use the previous merge settings.</small>}
             </div>}
-            <button type="button" className="btn btn-primary merge-button" disabled={!selected || processing || scanning} onClick={merge}>
+            <button type="button" className="btn btn-primary merge-button" disabled={!selected || processing || scanning || (isDesktop() && desktopLoading && manualFiles.length === 0)} onClick={merge}>
               {processing ? <LoaderCircle size={16} className="spin"/> : <Layers3 size={16}/>}
               {processing ? 'Merging…' : jpegUrl ? 'Re-merge HDR' : 'Merge HDR'}
             </button>
