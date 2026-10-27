@@ -171,10 +171,16 @@ export function ExifOverlayControls({settings, onChange}: SettingsProps) {
 
 
 /** The same percentage-of-image-width typography is used for preview and JPEG export. */
-export function ExifOverlayPreview({photo, settings, imageUrl}: {photo?: Photo | null; settings: ExifOverlaySettings; imageUrl?: string}) {
+export function ExifOverlayPreview({photo, settings, imageUrl, displayWidth}: {photo?: Photo | null; settings: ExifOverlaySettings; imageUrl?: string; displayWidth?: number}) {
   const lines = useMemo(() => exifOverlayLines(photo, settings), [photo, settings]);
-  const [width, setWidth] = useState(800);
+  const [width, setWidth] = useState(displayWidth ?? 800);
   useEffect(() => {
+    // The zoomable viewer provides the fitted width before CSS zoom. Avoid
+    // measuring a transformed element or EXIF text scales twice while zooming.
+    if (displayWidth !== undefined) {
+      setWidth(displayWidth);
+      return;
+    }
     const image = document.querySelector<HTMLImageElement>('.image-presentation .stage-image');
     if (!image) return;
     const measure = () => setWidth(image.getBoundingClientRect().width || 800);
@@ -182,7 +188,7 @@ export function ExifOverlayPreview({photo, settings, imageUrl}: {photo?: Photo |
     observer.observe(image);
     measure();
     return () => observer.disconnect();
-  }, [photo, settings.enabled, imageUrl]);
+  }, [photo, settings.enabled, imageUrl, displayWidth]);
   if (!lines.length) return null;
   const percent = exifTextPercent(settings);
   const fontSize = Math.max(7, Math.min(72, width * percent / 100));

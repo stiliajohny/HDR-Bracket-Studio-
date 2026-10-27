@@ -154,3 +154,56 @@
 /* DNG development runs asynchronously in a LibRaw Web Worker. */
 .dng-progress{font-size:11px;line-height:1.5;color:#b1d3fc;background:#2b3d4f;
   border:1px solid #486682;border-radius:5px;margin:0 0 12px;padding:9px 11px}
+
+
+/* Shared zoomable photo viewer for the browser and Tauri webview. */
+.photo-viewport{position:absolute;inset:0;overflow:hidden;outline:none;touch-action:none;user-select:none;
+  background:transparent;cursor:default}
+.photo-viewport.can-pan{cursor:grab}
+.photo-viewport.can-pan:active{cursor:grabbing}
+.photo-viewport:focus-visible{outline:2px solid #9bc4f7;outline-offset:-3px}
+.photo-pan-layer{position:absolute;left:50%;top:50%;transform-origin:center center;will-change:transform;
+  box-shadow:0 8px 35px rgba(0,0,0,.45);line-height:0;pointer-events:none}
+.photo-pan-layer .image-presentation{display:block;position:relative;width:100%;height:100%;
+  max-width:none;max-height:none;line-height:0}
+.photo-pan-layer .image-presentation .stage-image{display:block;width:100%;height:100%;
+  min-width:0;min-height:0;max-width:none;max-height:none;object-fit:fill;
+  box-shadow:none;border:0;pointer-events:none}
+.photo-pan-layer .exif-photo-overlay{pointer-events:none}
+.photo-loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  color:#aab7c5;font-size:12px;white-space:nowrap}
+.photo-zoom-toolbar{position:absolute;left:15px;bottom:17px;z-index:8;display:flex;align-items:center;
+  gap:2px;border:1px solid #505963;background:rgba(28,31,36,.96);color:#e4ecf5;
+  box-shadow:0 7px 24px #0009;padding:4px;border-radius:8px;cursor:default}
+.photo-zoom-toolbar button{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:0;border-radius:5px;background:transparent;color:#e0e7f0;min-height:29px;min-width:29px;
+  padding:6px 8px;font-weight:600;font-size:11px}
+.photo-zoom-toolbar button:hover:not(:disabled){background:#435263;color:#fff}
+.photo-zoom-toolbar button:disabled{color:#68727f;opacity:.7}
+.photo-zoom-value{text-align:center;min-width:48px;font-size:11px;font-variant-numeric:tabular-nums;
+  color:#b9d4f4;font-weight:630;padding:4px 2px}
+.photo-minimap{position:absolute;right:16px;bottom:16px;z-index:8;
+  min-width:142px;min-height:55px;padding:9px 9px 10px;
+  display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid #4c5661;
+  border-radius:8px;box-shadow:0 8px 26px #000a;background:rgba(25,29,34,.95);cursor:default}
+.photo-minimap-title{display:flex;justify-content:space-between;align-items:center;align-self:stretch;
+  font-size:9px;letter-spacing:1.1px;font-weight:670;color:#b7c8d9}
+.photo-minimap-title span{letter-spacing:0;font-variant-numeric:tabular-nums;font-weight:600;color:#d9e4f3}
+.photo-minimap-image{display:block;position:relative;flex:0 0 auto;background:#121416;
+  overflow:hidden;cursor:crosshair;touch-action:none;outline:none}
+.photo-minimap-image:focus-visible{outline:2px solid #9cc5f7;outline-offset:2px}
+.photo-minimap-image>img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:fill;
+  pointer-events:none;user-select:none}
+.photo-minimap-window{position:absolute;box-sizing:border-box;border:2px solid #a7d1ff;
+  background:rgba(118,170,224,.21);pointer-events:none;box-shadow:inset 0 0 0 1px #0008,
+  0 0 0 1px #14283c}
+.image-stage>.image-caption{top:12px;bottom:auto;left:16px;right:auto;transform:none;z-index:9;
+  max-width:calc(100% - 40px);pointer-events:none}
+.image-stage>.processing-overlay{z-index:15}
+@media(max-width:710px){
+  .photo-zoom-toolbar{left:10px;bottom:10px;padding:3px}
+  .photo-zoom-toolbar button{font-size:10px;min-height:27px;min-width:26px;padding:5px 6px}
+  .photo-zoom-value{min-width:42px;font-size:10px}
+  .photo-minimap{right:9px;top:10px;bottom:auto;transform:scale(.8);transform-origin:top right}
+  .image-stage>.image-caption{top:auto;bottom:54px;left:10px;font-size:9px}
+}

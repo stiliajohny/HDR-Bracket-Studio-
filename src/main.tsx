@@ -11,7 +11,8 @@ import type { Photo, Result, Group } from './types';
 import { StudioMenus } from './StudioMenus';
 import { MetadataDock, type MetadataLayout } from './MetadataDock';
 import { ExifOverlayControls, ExifOverlayPreview, renderExifOnJpeg, defaultExifOverlay, type ExifOverlaySettings } from './ExifOverlay';
-import { ImageAdjustmentControls, AdjustedHdrPreview, applyImageAdjustmentsToJpeg, defaultImageAdjustments, type ImageAdjustments } from './ImageAdjustments';
+import { ImageAdjustmentControls, applyImageAdjustmentsToJpeg, defaultImageAdjustments, type ImageAdjustments } from './ImageAdjustments';
+import { PhotoViewport } from './PhotoViewport';
 import './style.css';
 
 const readable = /\.(jpe?g|png|webp)$/i;
@@ -355,13 +356,11 @@ function App() {
             {!selected ? (
               <div className="stage-empty"><div className="stage-icon"><ImageIcon size={34}/></div><h2>Your next HDR starts here</h2><p>Import a folder of bracketed photos to find matching exposures.</p><button type="button" className="btn btn-primary" onClick={pickFolder}><FolderOpen size={16}/> Import photos</button></div>
             ) : displayedUrl ? (
-              <div className="image-presentation">
-                {view === 'merged' && jpegBlob
-                  ? <AdjustedHdrPreview key={displayedUrl} src={displayedUrl} settings={imageAdjustments}/>
-                  : <img key={displayedUrl} className="stage-image" src={displayedUrl}
-                      alt={currentPhoto?.name || 'Selected exposure'}/>} 
-                <ExifOverlayPreview photo={photoForOverlay} settings={exifOverlay} imageUrl={displayedUrl}/>
-              </div>
+              <PhotoViewport key={selected.id} src={displayedUrl}
+                photo={photoForOverlay} exif={exifOverlay}
+                adjusted={view === 'merged' && Boolean(jpegBlob)}
+                adjustments={imageAdjustments}
+                alt={view === 'merged' ? 'Tone-mapped HDR result' : currentPhoto?.name || 'Selected exposure'}/>
             ) : (
               <div className="stage-empty"><ImageIcon size={34}/><h2>{dngLoading ? 'Developing camera RAW…' : desktopLoading ? 'Loading photos…' : 'Preview unavailable'}</h2>
                 <p>{dngLoading ? dngProgress : desktopLoading ? 'Reading source frames from the imported folder.' :

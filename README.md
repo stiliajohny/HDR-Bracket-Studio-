@@ -223,3 +223,30 @@ npm run tauri build     # Generates icons and bundles RAW WASM assets
 The bundled LibRaw library has its own upstream licensing terms (LGPL/CDDL).
 Review the upstream license and distribution requirements when shipping
 commercial binary releases.
+
+## Fit-to-screen, zoom and navigator (web and Tauri)
+
+The central image viewer uses decoded image dimensions to detect portrait,
+landscape, square and panoramic aspect ratios automatically. **Fit** is the
+default each time you select another photo/stack or switch between the
+original and merged HDR result: the largest dimension fits the available
+viewport without cropping or distorting the photo.
+
+- **Mouse wheel / trackpad scroll:** zoom in or out around the pointer.
+- **+ / − buttons:** zoom by 1.4×; the numeric display shows the approximate
+  image-pixel percentage, not merely the multiplier over Fit.
+- **Fit (F or 0):** restore the complete image and centre it.
+- **100%:** show actual image pixels where available (up to the 32× limit).
+- **Double-click:** jump between Fit and a 2× zoom.
+- **Drag:** pan a zoomed photo, constrained so the image remains in the viewport.
+- **Navigator / minimap:** always visible at the lower right, with a
+  highlighted rectangle representing the viewport. Click or drag inside the
+  navigator to pan the image. Arrow keys can also move the visible area.
+- **Keyboard:** while the viewer is focused, F/0 to fit, +/− to zoom, and
+  arrow keys to pan.
+
+The same `src/PhotoViewport.tsx` is used in the web and Tauri interfaces.
+It supports imported JPEG/PNG/WebP images, developed DNG previews, and
+tone-mapped HDR output with live image adjustments and anchored EXIF overlays.
+Zoom and pan affect the preview only; JPEG/HDR output dimensions do not
+change with navigation.
