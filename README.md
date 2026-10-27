@@ -89,3 +89,17 @@ metadata tags themselves.
 
 All formatting and canvas rendering live in `src/ExifOverlay.tsx` and
 are shared between the web application and Tauri.
+
+## Tauri application icons and EXIF caption sizes
+
+Tauri application icons (PNG, Windows ICO, macOS ICNS) are generated
+automatically from `scripts/generate-icons.mjs` with Node built-ins.
+`npm run build` and Tauri's development command run the generator before
+Rust compilation. To run `cargo check` independently, run
+`npm run generate:icons` at least once first. Generated assets are not
+committed because every checkout produces identical files.
+
+In **Photo → EXIF text on photo…**, the Text size control now offers
+**Small / Medium / Large**. The same selection immediately updates the photo
+preview and the caption embedded into exported JPEGs on web and desktop.
+Radiance HDR files remain unaltered.

@@ -3,3 +3,6 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 .DS_Store
+
+# Generated before Tauri builds on all platforms
+src-tauri/icons/

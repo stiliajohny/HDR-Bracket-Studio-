@@ -3,12 +3,14 @@ import type { Photo } from './types';
 
 export type ExifOverlayPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 export type ExifOverlayStyle = 'dark' | 'light' | 'white' | 'black';
+export type ExifOverlaySize = 'small' | 'medium' | 'large';
 export type ExifField = 'filename' | 'date' | 'camera' | 'lens' | 'shutter' | 'aperture' | 'iso' | 'focal' | 'compensation' | 'resolution' | 'ev';
 
 export type ExifOverlaySettings = {
   enabled: boolean;
   position: ExifOverlayPosition;
   style: ExifOverlayStyle;
+  size: ExifOverlaySize;
   fields: Record<ExifField, boolean>;
 };
 
@@ -43,6 +45,7 @@ export const defaultExifOverlay: ExifOverlaySettings = {
   enabled: false,
   position: 'bottom-left',
   style: 'dark',
+  size: 'medium',
   fields: {
     filename: false, date: true, camera: true, lens: true, shutter: true,
     aperture: true, iso: true, focal: true, compensation: false,
@@ -107,6 +110,18 @@ export function ExifOverlayControls({settings, onChange}: SettingsProps) {
         <small className="exif-stamp-hint">{positions.find(p => p.id === settings.position)?.label}</small>
       </div>
       <div className="exif-stamp-section">
+        <span className="exif-stamp-label">Text size</span>
+        <div className="exif-size-choices" role="group" aria-label="EXIF text size">
+          {(['small', 'medium', 'large'] as const).map(option => (
+            <button type="button" key={option} aria-pressed={settings.size === option}
+              className={settings.size === option ? 'selected' : ''}
+              onClick={() => update({size: option})}>
+              {option[0].toUpperCase() + option.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="exif-stamp-section">
         <span className="exif-stamp-label">Appearance</span>
         <div className="exif-style-choices" role="group" aria-label="Metadata overlay appearance">
           {styles.map(option => <button type="button" key={option.id}
@@ -137,7 +152,7 @@ export function ExifOverlayControls({settings, onChange}: SettingsProps) {
 export function ExifOverlayPreview({photo, settings}: {photo?: Photo | null; settings: ExifOverlaySettings}) {
   const lines = useMemo(() => exifOverlayLines(photo, settings), [photo, settings]);
   if (!lines.length) return null;
-  return <div className={'exif-photo-overlay ' + settings.position + ' style-' + settings.style} aria-label="EXIF text overlay">
+  return <div className={'exif-photo-overlay ' + settings.position + ' style-' + settings.style + ' size-' + settings.size} aria-label="EXIF text overlay">
     {lines.map((line, i) => <div className="exif-photo-overlay-line" key={i}>{line}</div>)}
   </div>;
 }
@@ -168,7 +183,8 @@ export async function renderExifOnJpeg(jpeg: Blob, photo: Photo | null | undefin
     const w = canvas.width, h = canvas.height;
     const gap = Math.max(10, Math.round(Math.min(w, h) * 0.028));
     const pad = Math.max(7, Math.round(Math.min(w, h) * 0.014));
-    const size = Math.max(9, Math.min(54, Math.round(w * 0.018), Math.floor((h - 2 * gap - 2 * pad) / (lines.length * 1.35))));
+    const ratio = settings.size === 'small' ? 0.012 : settings.size === 'large' ? 0.026 : 0.018;
+    const size = Math.max(7, Math.min(72, Math.round(w * ratio), Math.floor((h - 2 * gap - 2 * pad) / (lines.length * 1.35))));
     const lineHeight = Math.ceil(size * 1.35);
     ctx.font = '600 ' + size + 'px system-ui, -apple-system, Arial, sans-serif';
     const maxTextWidth = Math.max(1, Math.min(w - 2 * gap - 2 * pad, Math.round(w * 0.76)));

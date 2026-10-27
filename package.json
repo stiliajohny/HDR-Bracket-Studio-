@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run generate:icons && tsc -b && vite build",
     "tauri": "tauri",
-    "build:web": "tsc -b && vite build"
+    "build:web": "tsc -b && vite build",
+    "generate:icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

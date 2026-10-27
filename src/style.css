@@ -89,3 +89,17 @@
 .exif-photo-overlay.style-white{color:#fff;background:transparent}
 .exif-photo-overlay.style-black{color:#000;background:transparent}
 @media(max-width:800px){.exif-photo-overlay{font-size:clamp(8px,1.5vw,13px);padding:6px}.exif-stamp-field span{font-size:11px}}
+
+/* Preset EXIF text sizes: applied immediately in the shared preview. */
+.exif-size-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.exif-size-choices button{padding:9px 3px;border-radius:5px;border:1px solid #464c55;background:#303337;color:#c9d1dc;font-size:11px}
+.exif-size-choices button:hover{background:#3b4550}
+.exif-size-choices button.selected{border-color:#93c2fb;background:#334961;color:#f1f6ff}
+.exif-photo-overlay.size-small{font-size:clamp(8px,.72vw,12px);padding:clamp(4px,.55vw,9px)}
+.exif-photo-overlay.size-medium{font-size:clamp(9px,1.05vw,17px);padding:clamp(5px,1vw,15px)}
+.exif-photo-overlay.size-large{font-size:clamp(12px,1.5vw,25px);padding:clamp(8px,1.4vw,20px)}
+@media(max-width:800px){
+.exif-photo-overlay.size-small{font-size:8px;padding:4px}
+.exif-photo-overlay.size-medium{font-size:10px;padding:6px}
+.exif-photo-overlay.size-large{font-size:13px;padding:9px}
+}
