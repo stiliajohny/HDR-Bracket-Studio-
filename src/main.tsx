@@ -10,7 +10,7 @@ import { developDngFrames, isDng } from './dng';
 import type { Photo, Result, Group } from './types';
 import { StudioMenus } from './StudioMenus';
 import { MetadataDock, type MetadataLayout } from './MetadataDock';
-import { ExifOverlayControls, ExifOverlayPreview, renderExifOnJpeg, defaultExifOverlay, type ExifOverlaySettings } from './ExifOverlay';
+import { ExifOverlayControls, renderExifOnJpeg, defaultExifOverlay, type ExifOverlaySettings } from './ExifOverlay';
 import { ImageAdjustmentControls, applyImageAdjustmentsToJpeg, defaultImageAdjustments, type ImageAdjustments } from './ImageAdjustments';
 import { PhotoViewport } from './PhotoViewport';
 import './style.css';
