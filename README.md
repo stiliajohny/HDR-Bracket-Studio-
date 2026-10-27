@@ -70,3 +70,22 @@ is open, and never edits the source image.
 The application also has shared **File / View / Photo** in-app menus for
 importing, detecting, merging and exporting. They are identical in the browser
 and Tauri rather than relying on platform-specific native menus.
+
+## EXIF text imprint on the photograph (web and desktop)
+
+Open **Photo → EXIF text on photo…**, or expand **EXIF on Photo** in the
+right-hand panel. Enable the overlay to see it on the selected original frame
+or merged HDR preview. Select any of four corners on the square location
+picker; choose Black/White, White/Black, White text, or Black text, and tick
+which EXIF fields should be rendered. Fields missing from the original
+metadata are excluded rather than invented.
+
+The overlaid preview is non-destructive and updates without re-merging.
+**Export JPEG** embeds the chosen caption in a new image. **Export .HDR**
+continues to write the original uncluttered radiance data; source photos
+are not modified. For merged images, EXIF fields come from the stack's
+middle exposure. This is an on-image caption, not a rewrite of the JPEG
+metadata tags themselves.
+
+All formatting and canvas rendering live in `src/ExifOverlay.tsx` and
+are shared between the web application and Tauri.

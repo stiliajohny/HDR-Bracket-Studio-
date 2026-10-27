@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Download, FolderOpen, Layers3, PanelBottom, PanelBottomClose } from 'lucide-react';
+import { Check, ChevronDown, Download, FolderOpen, Layers3, PanelBottom, PanelBottomClose, Type } from 'lucide-react';
 
 type MetadataLayout = 'compact' | 'detailed';
 type MenuName = 'file' | 'view' | 'photo';
@@ -9,6 +9,8 @@ type Props = {
   onMerge: () => void;
   onExportJpeg: () => void;
   onExportHdr: () => void;
+  onConfigureExifOverlay: () => void;
+  exifOverlayEnabled: boolean;
   canDetect: boolean;
   canMerge: boolean;
   canExport: boolean;
@@ -94,6 +96,7 @@ export function StudioMenus(props: Props) {
       {trigger('photo', 'Photo')}
       {open === 'photo' && <div className="studio-dropdown" role="menu" aria-label="Photo">
         <button role="menuitem" disabled={!props.canMerge} onClick={action(props.onMerge)}><Layers3 size={15}/> Merge selected stack</button>
+        <button role="menuitem" onClick={action(props.onConfigureExifOverlay)}><Type size={15}/> EXIF text on photo…{props.exifOverlayEnabled && <Check size={13} className="menu-check"/>}</button>
         <div className="menu-separator" role="separator"/>
         <button role="menuitem" disabled={!props.canExport} onClick={action(props.onExportJpeg)}><Download size={15}/> Export JPEG…</button>
         <button role="menuitem" disabled={!props.canExportHdr} onClick={action(props.onExportHdr)}><Download size={15}/> Export Radiance HDR…</button>

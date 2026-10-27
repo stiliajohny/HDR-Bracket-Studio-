@@ -9,6 +9,7 @@ import { mergeHdr, type DeghostLevel } from './hdr';
 import type { Photo, Result, Group } from './types';
 import { StudioMenus } from './StudioMenus';
 import { MetadataDock, type MetadataLayout } from './MetadataDock';
+import { ExifOverlayControls, ExifOverlayPreview, renderExifOnJpeg, defaultExifOverlay, type ExifOverlaySettings } from './ExifOverlay';
 import './style.css';
 
 const readable = /\.(jpe?g|png|webp)$/i;
@@ -44,6 +45,10 @@ function App() {
   const [dirty, setDirty] = useState(false);
   const [metadataVisible, setMetadataVisible] = useState(true);
   const [metadataLayout, setMetadataLayout] = useState<MetadataLayout>('compact');
+  const [exifOverlay, setExifOverlay] = useState<ExifOverlaySettings>(defaultExifOverlay);
+  const [exifOverlayOpen, setExifOverlayOpen] = useState(false);
+  const [exportingJpeg, setExportingJpeg] = useState(false);
+  const [jpegBlob, setJpegBlob] = useState<Blob | null>(null);
   const [jpegUrl, setJpegUrl] = useState<string | null>(null);
   const [radianceUrl, setRadianceUrl] = useState<string | null>(null);
   const [offsets, setOffsets] = useState<{name: string; x: number; y: number}[]>([]);
@@ -69,6 +74,7 @@ function App() {
 
   const groups = result?.groups ?? [];
   const selected = groups.find(g => g.id === activeId) ?? null;
+  const referencePhoto = useMemo(() => selected ? [...selected.photos].sort((a,b) => (a.ev100 ?? 0) - (b.ev100 ?? 0))[Math.floor(selected.photos.length / 2)] : undefined, [selected]);
   useEffect(() => {
     if (!isDesktop() || !selected) {
       setDesktopFiles([]);
@@ -92,10 +98,11 @@ function App() {
   const currentPhoto = selectedPhotos[Math.min(activeFrame, Math.max(0, selectedPhotos.length - 1))];
   const currentUrl = currentPhoto ? (thumbnailUrls.get(currentPhoto.path) ?? thumbnailUrls.get(currentPhoto.name)) : undefined;
   const displayedUrl = view === 'merged' && jpegUrl ? jpegUrl : currentUrl;
+  const photoForOverlay = view === 'merged' && jpegUrl ? referencePhoto : currentPhoto;
   const canViewMerged = Boolean(jpegUrl);
 
   function resetPreview() {
-    setJpegUrl(null); setRadianceUrl(null); setOffsets([]); setDirty(false); setView('source');
+    setJpegUrl(null); setJpegBlob(null); setRadianceUrl(null); setOffsets([]); setDirty(false); setView('source');
   }
   async function pickFolder() {
     setError('');
@@ -153,6 +160,7 @@ function App() {
       const merged = await mergeHdr(sources, selected.photos, {
         maxWidth, autoAlign, autoTone, deghost, exposureEV, highlightCompression
       });
+      setJpegBlob(merged.jpeg);
       setJpegUrl(URL.createObjectURL(merged.jpeg));
       setRadianceUrl(URL.createObjectURL(merged.radiance));
       setOffsets(merged.offsets); setDirty(false); setView('merged');
@@ -170,6 +178,31 @@ function App() {
     link.remove();
   }
 
+  async function exportJpeg() {
+    if (!jpegBlob || exportingJpeg) return;
+    setExportingJpeg(true);
+    setError('');
+    try {
+      // Burn the EXIF caption into an exported copy, never into the merged
+      // radiance data or its original JPEG preview.
+      const output = await renderExifOnJpeg(jpegBlob, referencePhoto, exifOverlay);
+      const url = URL.createObjectURL(output);
+      downloadFile(url, 'HDR_stack_' + (selected?.id ?? 1) + '.jpg');
+      // Allow the browser/webview to start the download before releasing it.
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (err) {
+      setError('JPEG export failed: ' + String(err));
+    } finally {
+      setExportingJpeg(false);
+    }
+  }
+
+  function configureExifOverlay() {
+    setExifOverlayOpen(true);
+    setExifOverlay(old => ({...old, enabled: true}));
+    window.setTimeout(() => document.querySelector('.exif-stamp-disclosure')?.scrollIntoView({block: 'nearest', behavior: 'smooth'}), 0);
+  }
+
   return (
     <div className="studio">
       <header className="topbar">
@@ -178,11 +211,13 @@ function App() {
           onImport={pickFolder}
           onDetect={scan}
           onMerge={merge}
-          onExportJpeg={() => downloadFile(jpegUrl, `HDR_stack_${selected?.id ?? 1}.jpg`)}
+          onExportJpeg={exportJpeg}
+          onConfigureExifOverlay={configureExifOverlay}
+          exifOverlayEnabled={exifOverlay.enabled}
           onExportHdr={() => downloadFile(radianceUrl, `HDR_stack_${selected?.id ?? 1}.hdr`)}
           canDetect={Boolean(folder) && !scanning}
           canMerge={Boolean(selected) && !processing && !scanning && !(isDesktop() && desktopLoading)}
-          canExport={Boolean(jpegUrl)}
+          canExport={Boolean(jpegBlob) && !exportingJpeg}
           canExportHdr={Boolean(radianceUrl)}
           metadataVisible={metadataVisible}
           onMetadataVisible={setMetadataVisible}
@@ -261,7 +296,11 @@ function App() {
             {!selected ? (
               <div className="stage-empty"><div className="stage-icon"><ImageIcon size={34}/></div><h2>Your next HDR starts here</h2><p>Import a folder of bracketed photos to find matching exposures.</p><button type="button" className="btn btn-primary" onClick={pickFolder}><FolderOpen size={16}/> Import photos</button></div>
             ) : displayedUrl ? (
-              <img key={displayedUrl} className="stage-image" src={displayedUrl} alt={view === 'merged' ? 'HDR merged preview' : currentPhoto?.name || 'Selected exposure'}/>
+              <div className="image-presentation">
+                <img key={displayedUrl} className="stage-image" src={displayedUrl}
+                  alt={view === 'merged' ? 'HDR merged preview' : currentPhoto?.name || 'Selected exposure'}/>
+                <ExifOverlayPreview photo={photoForOverlay} settings={exifOverlay}/>
+              </div>
             ) : (
               <div className="stage-empty"><ImageIcon size={34}/><h2>{desktopLoading ? 'Loading photos…' : 'Preview unavailable'}</h2><p>{desktopLoading ? 'Reading source frames from the imported folder.' : 'RAW previews are not decoded here. Select matching JPEG frames in the Merge panel.'}</p></div>
             )}
@@ -320,13 +359,20 @@ function App() {
                 <label>Output width <select value={maxWidth} onChange={e => setMergeOption(() => setMaxWidth(Number(e.target.value)))}><option value={1200}>1200 px</option><option value={2400}>2400 px</option><option value={4000}>4000 px</option></select></label>
               </div>
             </details>
+            <details className="disclosure exif-stamp-disclosure" open={exifOverlayOpen}
+              onToggle={e => setExifOverlayOpen(e.currentTarget.open)}>
+              <summary><SlidersHorizontal size={15}/> EXIF on Photo <ChevronDown size={14}/></summary>
+              <div className="disclosure-inner">
+                <ExifOverlayControls settings={exifOverlay} onChange={setExifOverlay}/>
+              </div>
+            </details>
           </div>
 
           <div className="merge-bottom">
             {selected && <div className="source-help"><label className="btn btn-outline file-picker"><Images size={15}/> Choose JPEG frames<input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={e => {setManualFiles(Array.from(e.target.files ?? []).map(file => ({file, path: file.name}))); resetPreview();}}/></label><small>Use this for RAW imports or if previews are missing. Select all exposures in the stack.</small></div>}
             {error && <div className="error-message" role="alert"><AlertCircle size={16}/><span>{error}</span></div>}
             {jpegUrl && <div className="export-actions">
-              <a href={jpegUrl} download={`HDR_stack_${selected?.id ?? 1}.jpg`} className="btn btn-outline"><Download size={15}/> Export JPEG</a>
+              <button type="button" disabled={exportingJpeg} onClick={exportJpeg} className="btn btn-outline"><Download size={15}/> {exportingJpeg ? 'Exporting…' : 'Export JPEG'}</button>
               {radianceUrl && <a href={radianceUrl} download={`HDR_stack_${selected?.id ?? 1}.hdr`} className="btn btn-outline"><Download size={15}/> Export .HDR</a>}
               {dirty && <small>These files use the previous merge settings.</small>}
             </div>}
@@ -334,7 +380,7 @@ function App() {
               {processing ? <LoaderCircle size={16} className="spin"/> : <Layers3 size={16}/>}
               {processing ? 'Merging…' : jpegUrl ? 'Re-merge HDR' : 'Merge HDR'}
             </button>
-            <p className="format-note">JPEG, PNG & WebP input · HDR radiance export. Camera RAW/DNG merging is not supported yet.</p>
+            <p className="format-note">EXIF caption is included in JPEG export only. HDR radiance stays unchanged. RAW/DNG merging is not supported yet.</p>
             {offsets.length > 0 && <details className="disclosure technical"><summary><ArrowLeftRight size={13}/> Alignment details <ChevronDown size={13}/></summary><div className="unmatched-list">{offsets.map(x => <div key={x.name}>{x.name}: {x.x}, {x.y}px</div>)}</div></details>}
           </div>
         </aside>
